@@ -1,9 +1,12 @@
-import { Container, VStack, Box, Heading, Text, Input, Textarea, Button, Flex } from "@chakra-ui/react";
+import { Container, VStack, Box, Heading, Text, Input, Textarea, Button, Flex, Spinner } from "@chakra-ui/react";
+import { usePosts, useAddPost, useAddReaction } from "../integrations/supabase/index.js";
 import { useState } from "react";
 
 const Index = () => {
-  const [posts, setPosts] = useState([]);
-  const [newPost, setNewPost] = useState({ title: "", content: "" });
+  const { data: posts, isLoading, isError, error } = usePosts();
+  const addPostMutation = useAddPost();
+  const addReactionMutation = useAddReaction();
+  const [newPost, setNewPost] = useState({ title: "", body: "" });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -12,10 +15,14 @@ const Index = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (newPost.title && newPost.content) {
-      setPosts([...posts, newPost]);
-      setNewPost({ title: "", content: "" });
+    if (newPost.title && newPost.body) {
+      addPostMutation.mutate(newPost);
+      setNewPost({ title: "", body: "" });
     }
+  };
+
+  const handleAddReaction = (postId, emoji) => {
+    addReactionMutation.mutate({ post_id: postId, user_id: "user-id-placeholder", emoji });
   };
 
   return (
@@ -36,23 +43,32 @@ const Index = () => {
           />
           <Textarea
             placeholder="Content"
-            name="content"
-            value={newPost.content}
+            name="body"
+            value={newPost.body}
             onChange={handleInputChange}
             mb={3}
           />
-          <Button type="submit" colorScheme="blue">Submit</Button>
+          <Button type="submit" colorScheme="blue" isLoading={addPostMutation.isLoading}>Submit</Button>
         </Box>
 
         <Box>
           <Heading size="md" mb={4}>Posts</Heading>
-          {posts.length === 0 ? (
+          {isLoading ? (
+            <Spinner />
+          ) : isError ? (
+            <Text>Error: {error.message}</Text>
+          ) : posts.length === 0 ? (
             <Text>No posts yet. Be the first to post!</Text>
           ) : (
-            posts.map((post, index) => (
-              <Box key={index} p={4} borderWidth={1} borderRadius="md" boxShadow="md" mb={4}>
+            posts.map((post) => (
+              <Box key={post.id} p={4} borderWidth={1} borderRadius="md" boxShadow="md" mb={4}>
                 <Heading size="sm" mb={2}>{post.title}</Heading>
-                <Text>{post.content}</Text>
+                <Text mb={2}>{post.body}</Text>
+                <Flex>
+                  <Button size="sm" onClick={() => handleAddReaction(post.id, "👍")}>👍</Button>
+                  <Button size="sm" onClick={() => handleAddReaction(post.id, "❤️")}>❤️</Button>
+                  <Button size="sm" onClick={() => handleAddReaction(post.id, "😂")}>😂</Button>
+                </Flex>
               </Box>
             ))
           )}
